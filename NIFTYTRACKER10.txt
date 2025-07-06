@@ -1,9 +1,9 @@
-// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
-// © websivasankar
-
 //@version=6
+//@description A comprehensive Remaining 10 Nifty50 stocks technical analysis tracker that monitors trends using MACD and Supertrend indicators. Provides real-time sector analysis and market breadth visualization.
+//@author websivasankar
+
 indicator("NIFTYTRACKER10")
-//Trend storage and 
+//Trend storage 
 labelTextUp = array.new_int(1, 0)
 labelTextDown =  array.new_int(1, 0)
 zigzagtext = array.new_int(1, 0)

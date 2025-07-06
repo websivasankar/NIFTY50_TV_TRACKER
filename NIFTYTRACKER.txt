@@ -1,5 +1,6 @@
-// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
-// © websivasankar
+//@version=6
+//@description A comprehensive Nifty50 technical analysis tracker that monitors trends across all 50 Nifty stocks using MACD and Supertrend indicators. Provides real-time sector analysis and market breadth visualization. Requires companion indicator NIFTYTRACKER10 for complete coverage.
+//@author websivasankar
 
 //@version=6
 indicator("NIFTYTRACKER40",max_labels_count = 180)
