@@ -1,0 +1,126 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © websivasankar
+
+//@version=6
+indicator("NIFTYTRACKER10")
+//Trend storage and 
+labelTextUp = array.new_int(1, 0)
+labelTextDown =  array.new_int(1, 0)
+zigzagtext = array.new_int(1, 0)
+
+labelTextUpSA = array.new_int(1, 0)
+labelTextDownSA =  array.new_int(1, 0)
+zigzagtextSA = array.new_int(1, 0)
+
+SpreadAnalysis() =>
+    H = high
+    L = low
+    V = volume
+    C = close
+    O = open
+    midprice = (H+L)/2
+    spread = (H-L)
+    avgSpread = ta.sma(spread,40)
+    AvgSpreadBar        =   spread > avgSpread// to be checked
+
+    wideRangeBar = spread>(1.5*avgSpread)
+    narrowRangeBar   = spread<(0.7*avgSpread)
+
+    upBar       = C>close[1]//C>Ref(C,-1)
+    downBar     = C<close[1]//C<Ref(C,-1)
+    closeFactor = C-L
+    clsPosition = spread/closeFactor
+    closePosition       = ((closeFactor == 0) ? (avgSpread) : (clsPosition))
+
+    downClose   = C<=((spread*0.3)+L)// close is below the 30% of the bar
+    belowClose  = C<((spread*0.5)+L)// close is between 50% and 30% of the bar
+    aboveClose  = C>((spread*0.5)+L)// close is between 50% and 70% of the bar
+    upClose     = C>=((spread*0.7)+L)// close is above 70% of the Bar
+    midClose    = C>((spread*0.3)+L) and C<((spread*0.7)+L)// close is between 30% and 70% of the bar
+    veryHighClose = closePosition<1.35// Close is above 80% of the bar
+    veryLowClose  = closePosition>4//close is below 25% of the bar
+
+    ClosePos = (C<=((spread*0.2)+L)?1:(C<=((spread*0.4)+L)?2:(C<=((spread*0.6)+L)?3:(C<=((spread*0.8)+L)?4:5))))
+    //---------------No Movement Bar--------------------
+    pm       = math.abs(C - O) // price move
+    pma      = ta.ema(pm, 40) // avg price move
+    Lpm	     = pm < (0.5 * pma) // small price move
+    bw       = C > O ? H-C : H-O // wick
+    bwh      = bw >= 2 * pm // big wick
+    directionBar = ""
+
+    if upBar and C > O[1]
+        directionBar := "U"
+
+    if downBar and C < O[1]
+        directionBar := "D"
+
+    if upBar == false and downBar == false and C > L[1] and C < H[1] and C < midprice[1] and narrowRangeBar[1] == false
+        directionBar := "D"
+
+    if upBar == false and downBar == false and C > L[1] and C < H[1] and C > midprice[1] and narrowRangeBar[1] == false
+        directionBar := "U"
+
+    directionBar
+
+//Util func
+method findTrend(string securitry) =>
+    [macdLine, signalLine, histLine] = ta.macd(close, 6, 13, 5)    
+    [supertrend, directionsector] = ta.supertrend(3, 10)
+    zigzag = true
+    zigzagsa = true
+    vwap = ta.vwap(hlc3)        
+    [securitry_supertrend5, securitry_direction5,macdLine5, signalLine5, histLine5,directionstock,vwaps] = 
+     request.security(securitry, timeframe.period, [supertrend, directionsector,macdLine, signalLine, histLine,SpreadAnalysis(),vwap],lookahead = barmerge.lookahead_on)    
+
+    if  signalLine5 < macdLine5 and securitry_direction5 < 0
+        array.set(labelTextUp, 0, array.get(labelTextUp, 0)+1)
+        zigzag := false
+    if  signalLine5 > macdLine5 and securitry_direction5 > 0
+        array.set(labelTextDown, 0, array.get(labelTextDown, 0)+1)   
+        zigzag := false
+    if zigzag
+        array.set(zigzagtext, 0, array.get(zigzagtext, 0)+1)
+
+    if directionstock == "U"
+        array.set(labelTextUpSA, 0, array.get(labelTextUpSA, 0)+1)
+        zigzagsa := false
+    if directionstock == "D"
+        array.set(labelTextDownSA, 0, array.get(labelTextDownSA, 0)+1)   
+        zigzagsa := false
+    if zigzagsa
+        array.set(zigzagtextSA, 0, array.get(zigzagtextSA, 0)+1)
+
+//Util func **** Start ///
+
+('NSE:HINDALCO').findTrend()//MM
+
+('NSE:POWERGRID').findTrend()//POWER
+('NSE:NTPC').findTrend()//POWER
+
+('NSE:TITAN').findTrend()//CONSUM
+('NSE:ASIANPAINT').findTrend()//CONSUM
+('NSE:TRENT').findTrend()//CONSUMSER
+
+('NSE:ADANIPORTS').findTrend()//SERVICES
+
+('NSE:ULTRACEMCO').findTrend()//CONS MAT
+('NSE:GRASIM').findTrend()//CONS MAT
+
+('NSE:BEL').findTrend()//CAPI GOODS
+
+upsize = array.get(labelTextUp,0)
+downsize = array.get(labelTextDown,0)
+sideway = array.get(zigzagtext,0)
+
+plot(upsize,title="Up 10",color = color.green,style = plot.style_stepline)
+plot(downsize,title="Down 10",color = color.red,style = plot.style_stepline)
+plot(sideway,title="Sideway 10",color = color.black,style = plot.style_stepline)
+
+upsizesa = array.get(labelTextUpSA,0)
+downsizesa = array.get(labelTextDownSA,0)
+sidewaysa = array.get(zigzagtextSA,0)
+
+plot(upsizesa,title="Up 10 SA",color = color.green,style = plot.style_stepline)
+plot(downsizesa,title="Down 10 SA",color = color.red,style = plot.style_stepline)
+plot(sidewaysa,title="Sideway 10 SA",color = color.black,style = plot.style_stepline)

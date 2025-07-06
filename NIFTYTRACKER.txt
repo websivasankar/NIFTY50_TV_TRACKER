@@ -1,0 +1,535 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © websivasankar
+
+//@version=6
+indicator("NIFTYTRACKER40",max_labels_count = 180)
+
+//Trend storage and 
+TimeWindow=bool(time(timeframe.period, "0946-1000", "UTC+05:30")) or bool(time(timeframe.period, "1231-1245", "UTC+05:30")) or bool(time(timeframe.period, "1331-1415", "UTC+05:30"))
+var topweight = array.new_string(10)
+array.set(topweight,0,'NSE:HDFCBANK')
+array.set(topweight,1,'NSE:ICICIBANK')
+array.set(topweight,2,'NSE:RELIANCE')
+array.set(topweight,3,'NSE:INFY')
+array.set(topweight,4,'NSE:BHARTIARTL')
+array.set(topweight,5,'NSE:LT')
+array.set(topweight,6,'NSE:ITC')
+array.set(topweight,7,'NSE:TCS')
+array.set(topweight,8,'NSE:AXISBANK')
+array.set(topweight,9,'NSE:KOTAKBANK')
+var float firsth = 0.0
+var float firstl = 0.0
+labelTextUp = array.new_int(1, 0)
+labelTextDown =  array.new_int(1, 0)
+zigzagtext = array.new_int(1, 0)
+labelTextUpSA = array.new_int(1, 0)
+labelTextDownSA =  array.new_int(1, 0)
+zigzagtextSA = array.new_int(1, 0)
+topweighclose = array.new_float(1,0)
+topweighvol = array.new_float(1,0)
+
+var float phy = na
+var float ply = na
+ph = ta.pivothigh(3, 3)
+pl = ta.pivotlow(3, 3)
+var float day_open = 0
+var float day_high = 0
+var float day_low = 0
+
+up10 = input.source(close,"Up 10")
+down10 = input.source(close,"Down 10")
+sideway10 = input.source(close,"Sideway 10")
+
+up10sa = input.source(close,"Up 10 sa")
+down10sa = input.source(close,"Down 10 sa")
+sideway10sa = input.source(close,"Sideway 10 sa")
+
+showlabel = input.bool(false,"Show Label")
+var RELTrend = array.new<string>(1)
+var HDFCTrend = array.new<string>(1)
+
+type Bar
+    float o
+    float h
+    float l
+    float c
+    int order
+    int bi
+    int bi_exit    
+    bool entry
+    bool exit
+   
+var Bar bull = Bar.new()
+var Bar bear = Bar.new()
+var string direction = ""
+//OR var
+var float orh = na 
+var float orl = na
+var starting = 0
+
+//Variable initite sesison
+
+if session.isfirstbar and timeframe.change("1")
+    starting := bar_index
+    orh := high
+    orl := low
+
+if starting + 4 >= bar_index and not session.isfirstbar
+    if high >= orh
+        orh := high
+    if low <= orl
+        orl := low
+if not session.isfirstbar
+    if high >= day_high
+        day_high := high
+    if low <= day_low
+        day_low := low
+
+if session.isfirstbar
+    firsth := 0.0
+    firstl := 0.0
+    day_open := open
+    day_high := high
+    day_low := low
+    direction := ""
+    bull.o := na
+    bull.h := na
+    bull.c := na
+    bull.l := na
+    bull.bi := na
+    bull.order := 0
+    bull.bi_exit := na    
+    bull.entry := false
+    bull.exit := false
+    bear.o := na
+    bear.h := na
+    bear.c := na
+    bear.l := na
+    bear.bi := na
+    bear.order := 0    
+    bear.bi_exit := na        
+    bear.entry := false
+    bear.exit := false
+//Util func
+SectorUp = array.new<string>() 
+SectorDown = array.new<string>()
+notrend = array.new<string>()
+percentageChangeMidOR = ((close - day_open) / day_open) * 100
+
+if na(ph) == false
+    H = ph > phy ? 'HH' : 'LH'
+    phy := ph
+    if phy > orh and firsth == 0.0
+        firsth := ph
+
+    //label.new(bar_index[3],ph, H,color = color(na),style = label.style_label_down,textcolor = color.red,force_overlay = true)    
+else if na(pl)== false
+    L = pl < ply ? 'LL' : 'HL'
+    ply := pl
+    if ply < orl and firstl == 0.0
+        firstl := pl
+            
+    //label.new(bar_index[3],pl, L,color = color(na),style = label.style_label_up,textcolor = color.green,force_overlay = true) 
+// plot(firstl > 0?firstl:na,force_overlay = true)
+// plot(firsth >0?firsth:na,force_overlay = true)
+GetKetWeigh(string stock) =>
+    if stock == "NSE:HDFCBANK"
+        0
+    if stock == "NSE:ICICIBANK"
+        1
+    if stock == "NSE:RELIANCE"
+        2
+    if stock == "NSE:INFY"
+        3
+    if stock == "NSE:BHARTIARTL"
+        4
+    if stock == "NSE:LT"
+        5
+    if stock == "NSE:ITC"
+        6
+    if stock == "NSE:TCS"
+        7
+    if stock == "NSE:AXISBANK"
+        8
+    if stock == "NSE:KOTAKBANK"
+        9                                                                
+
+NiftySpreadAnalysis() =>
+    H = high
+    L = low
+    V = volume
+    C = close
+    O = open
+    midprice = (H+L)/2
+    spread = (H-L)
+    avgSpread = ta.sma(spread,40)
+    AvgSpreadBar        =   spread > avgSpread// to be checked
+
+    wideRangeBar = spread>(1.5*avgSpread)
+    narrowRangeBar   = spread<(0.7*avgSpread)
+
+    upBar       = C>close[1]//C>Ref(C,-1)
+    downBar     = C<close[1]//C<Ref(C,-1)
+    closeFactor = C-L
+    clsPosition = spread/closeFactor
+    closePosition       = ((closeFactor == 0) ? (avgSpread) : (clsPosition))
+
+    downClose   = C<=((spread*0.3)+L)// close is below the 30% of the bar
+    belowClose  = C<((spread*0.5)+L)// close is between 50% and 30% of the bar
+    aboveClose  = C>((spread*0.5)+L)// close is between 50% and 70% of the bar
+    upClose     = C>=((spread*0.7)+L)// close is above 70% of the Bar
+    midClose    = C>((spread*0.3)+L) and C<((spread*0.7)+L)// close is between 30% and 70% of the bar
+    veryHighClose = closePosition<1.35// Close is above 80% of the bar
+    veryLowClose  = closePosition>4//close is below 25% of the bar
+
+    ClosePos = (C<=((spread*0.2)+L)?1:(C<=((spread*0.4)+L)?2:(C<=((spread*0.6)+L)?3:(C<=((spread*0.8)+L)?4:5))))
+    //---------------No Movement Bar--------------------
+    pm       = math.abs(C - O) // price move
+    pma      = ta.ema(pm, 40) // avg price move
+    Lpm	     = pm < (0.5 * pma) // small price move
+    bwu       = C > O ? H-C : H-O // wick on Green bar
+    bwd       = C < O ? C-L : O-L // wick on Red    
+    bwhu      = bwu >= 2 * pm // big wick
+    bwhd      = bwd >= 2 * pm // big wick    
+    abvmidprev = C > midprice[1]
+    blwmidprev = C < midprice[1]
+
+    directionBar = ""    
+    if upBar and belowClose == false and downClose == false and narrowRangeBar == false and Lpm == false and AvgSpreadBar
+        directionBar := "U"
+
+    if downBar and belowClose and downClose and narrowRangeBar == false and Lpm == false and AvgSpreadBar
+        directionBar := "D"
+
+    if upBar == false and downBar == false and C > L[1] and C < H[1] and C < midprice[1] and narrowRangeBar[1] == false
+        directionBar := "D"
+
+    if upBar == false and downBar == false and C > L[1] and C < H[1] and C > midprice[1] and narrowRangeBar[1] == false
+        directionBar := "U"
+
+    if narrowRangeBar[2] and narrowRangeBar[3] == false
+        directionBar := directionBar[3] != ""?directionBar[3]:''
+
+
+    [AvgSpreadBar,wideRangeBar,narrowRangeBar,upBar,downBar,veryLowClose,veryHighClose,bwu,bwd,bwhu,bwhd,directionBar,abvmidprev,blwmidprev,upClose]
+        
+[Nifty_AvgSpreadBar,Nifty_wideRangeBar,Nifty_narrowRangeBar,Nifty_upBar,Nifty_downBar,Nifty_veryLowClose,Nifty_veryHighClose,Nifty_bwu,Nifty_bwd,Nifty_bwhu,Nifty_bwhd,nbgcolor,Niftyabvmidprev,NiftyblwClose,upCloseN] =  NiftySpreadAnalysis()
+
+SpreadAnalysis() =>
+    H = high
+    L = low
+    V = volume
+    C = close
+    O = open
+    midprice = (H+L)/2
+    spread = (H-L)
+    avgSpread = ta.sma(spread,40)
+    AvgSpreadBar        =   spread > avgSpread// to be checked
+
+    wideRangeBar = spread>(1.5*avgSpread)
+    narrowRangeBar   = spread<(0.7*avgSpread)
+
+    upBar       = C>close[1]//C>Ref(C,-1)
+    downBar     = C<close[1]//C<Ref(C,-1)
+    closeFactor = C-L
+    clsPosition = spread/closeFactor
+    closePosition       = ((closeFactor == 0) ? (avgSpread) : (clsPosition))
+
+    downClose   = C<=((spread*0.3)+L)// close is below the 30% of the bar
+    belowClose  = C<((spread*0.5)+L)// close is between 50% and 30% of the bar
+    aboveClose  = C>((spread*0.5)+L)// close is between 50% and 70% of the bar
+    upClose     = C>=((spread*0.7)+L)// close is above 70% of the Bar
+    midClose    = C>((spread*0.3)+L) and C<((spread*0.7)+L)// close is between 30% and 70% of the bar
+    veryHighClose = closePosition<1.35// Close is above 80% of the bar
+    veryLowClose  = closePosition>4//close is below 25% of the bar
+
+    ClosePos = (C<=((spread*0.2)+L)?1:(C<=((spread*0.4)+L)?2:(C<=((spread*0.6)+L)?3:(C<=((spread*0.8)+L)?4:5))))
+    //---------------No Movement Bar--------------------
+    pm       = math.abs(C - O) // price move
+    pma      = ta.ema(pm, 40) // avg price move
+    Lpm	     = pm < (0.5 * pma) // small price move
+    bw       = C > O ? H-C : H-O // wick
+    bwh      = bw >= 2 * pm // big wick
+    directionBar = ""
+ 
+    if upBar and C > O[1]
+        directionBar := "U"
+
+    if downBar and C < O[1]
+        directionBar := "D"
+
+    if upBar == false and downBar == false and C > L[1] and C < H[1] and C < midprice[1] and narrowRangeBar[1] == false
+        directionBar := "D"
+
+    if upBar == false and downBar == false and C > L[1] and C < H[1] and C > midprice[1] and narrowRangeBar[1] == false
+        directionBar := "U"
+
+    directionBar
+
+method findTrend(string securitry) =>
+    zigzag = true
+    zigzagsa = true        
+    [macdLine, signalLine, histLine] = ta.macd(close, 6, 13, 5)    
+    [supertrend, directionsector] = ta.supertrend(3, 10)
+    [securitry_supertrend5, securitry_direction5,macdLine5, signalLine5, histLine5,directionstock,closeofsec,volumeoftop] = 
+     request.security(securitry, timeframe.period, [supertrend, directionsector,macdLine, signalLine, histLine,SpreadAnalysis(),close,volume],lookahead = barmerge.lookahead_on)
+    //closeofsec
+    //topweighclose
+    if array.includes(topweight, securitry)
+        array.set(topweighclose, 0, array.get(topweighclose, 0) + closeofsec)
+        array.set(topweighvol, 0, array.get(topweighvol, 0) + volumeoftop)        
+
+    //if signalLine5 < macdLine5 and securitry_direction5 < 0    
+    if signalLine5 < macdLine5 and securitry_direction5 < 0
+        array.set(labelTextUp, 0, array.get(labelTextUp, 0)+1)
+        zigzag := false
+        if array.includes(topweight, securitry)
+            array.push(SectorUp,securitry)
+       
+        if securitry == "NSE:RELIANCE"
+            array.set(RELTrend,0,"U")
+        if securitry == "NSE:HDFCBANK"
+            array.set(HDFCTrend,0,"U")
+    //if signalLine5 > macdLine5 and securitry_direction5 > 0            
+    if signalLine5 > macdLine5 and securitry_direction5 > 0
+        array.set(labelTextDown, 0, array.get(labelTextDown, 0)+1)
+        zigzag := false
+        if array.includes(topweight, securitry)
+            array.push(SectorDown,securitry)
+   
+        if securitry == "NSE:RELIANCE"
+            array.set(RELTrend,0,"D")
+        if securitry == "NSE:HDFCBANK"
+            array.set(HDFCTrend,0,"D")
+    if zigzag
+        array.set(zigzagtext, 0, array.get(zigzagtext, 0)+1)
+        if securitry == "NSE:HDFCBANK"
+            array.set(HDFCTrend,0,"")
+        if securitry == "NSE:RELIANCE"
+            array.set(RELTrend,0,"")            
+    if directionstock == "U"
+        array.set(labelTextUpSA, 0, array.get(labelTextUpSA, 0)+1)
+        zigzagsa := false
+    if directionstock == "D"
+        array.set(labelTextDownSA, 0, array.get(labelTextDownSA, 0)+1)   
+        zigzagsa := false
+    if zigzagsa
+        array.set(zigzagtextSA, 0, array.get(zigzagtextSA, 0)+1)
+
+//Util func **** Start ///
+('NSE:HDFCBANK').findTrend()//Finance
+('NSE:ICICIBANK').findTrend()//Finance
+('NSE:KOTAKBANK').findTrend()//Finance
+('NSE:AXISBANK').findTrend()//Finance
+('NSE:SBIN').findTrend()//Finance
+('NSE:SBILIFE').findTrend()//Finance
+('NSE:SHRIRAMFIN').findTrend()//Finance
+('NSE:BAJFINANCE').findTrend()//Finance
+('NSE:BAJAJFINSV').findTrend()//Finance
+('NSE:INDUSINDBK').findTrend()//Finance
+('NSE:HDFCLIFE').findTrend()//Finance
+
+('NSE:TCS').findTrend()//IT
+('NSE:INFY').findTrend()//IT
+('NSE:HCLTECH').findTrend()//IT
+('NSE:TECHM').findTrend()//IT
+('NSE:WIPRO').findTrend()//IT
+
+('NSE:RELIANCE').findTrend()//OIL
+('NSE:ONGC').findTrend()//OIL
+('NSE:COALINDIA').findTrend()//OIL
+('NSE:BPCL').findTrend()//OIL
+
+('NSE:ITC').findTrend()//FMCG
+('NSE:HINDUNILVR').findTrend()//FMCG
+('NSE:NESTLEIND').findTrend()//FMCG
+('NSE:BRITANNIA').findTrend()//FMCG
+('NSE:TATACONSUM').findTrend()//FMCG
+
+('NSE:MARUTI').findTrend()//AUTO
+('NSE:M&M').findTrend()//AUTO
+('NSE:EICHERMOT').findTrend()//AUTO
+('NSE:TATAMOTORS').findTrend()//AUTO
+('NSE:BAJAJ_AUTO').findTrend()//AUTO
+('NSE:HEROMOTOCO').findTrend()//AUTO
+
+('NSE:SUNPHARMA').findTrend()//HEALTH
+('NSE:DRREDDY').findTrend()//HEALTH
+('NSE:CIPLA').findTrend()//HEALTH
+('NSE:APOLLOHOSP').findTrend()//HEALTH
+
+('NSE:BHARTIARTL').findTrend()//TELECOMM
+
+('NSE:LT').findTrend()//CONS
+
+('NSE:ADANIENT').findTrend()//MM
+('NSE:JSWSTEEL').findTrend()//MM
+('NSE:TATASTEEL').findTrend()//MM
+// ('NSE:HINDALCO').findTrend()//MM
+// ('NSE:POWERGRID').findTrend()//POWER
+// ('NSE:NTPC').findTrend()//POWER
+// ('NSE:TITAN').findTrend()//CONSUM
+// ('NSE:ASIANPAINT').findTrend()//CONSUM
+// ('NSE:TRENT').findTrend()//CONSUMSER
+// ('NSE:ADANIPORTS').findTrend()//SERVICES
+// ('NSE:ULTRACEMCO').findTrend()//CONS MAT
+// ('NSE:GRASIM').findTrend()//CONS MAT
+// ('NSE:BEL').findTrend()//CAPI GOODS
+labelTextUpTip = ""
+labelTextDownTip = ""
+for i = 0 to (array.size(SectorUp) == 0 ? na : array.size(SectorUp) - 1)
+    labelTextUpTip += str.tostring(array.get(SectorUp, i)) + "\n"
+
+for i = 0 to (array.size(SectorDown) == 0 ? na : array.size(SectorDown) - 1)
+    labelTextDownTip += str.tostring(array.get(SectorDown, i)) + "\n"
+
+smashort = input.int(2,"SMA Short")
+
+moverup = array.size(SectorUp) >= 7?size.normal: size.tiny
+moverdown = array.size(SectorDown) >= 7?size.normal:size.tiny
+
+upsize = array.get(labelTextUp,0)+up10
+downsize = array.get(labelTextDown,0)+down10
+sideway = array.get(zigzagtext,0)+sideway10
+
+upsizesa = array.get(labelTextUpSA,0)+up10sa
+upsizesa := ta.sma(upsizesa,smashort)
+downsizesa = array.get(labelTextDownSA,0)+down10sa
+downsizesa := ta.sma(downsizesa,smashort)
+sidewaysa = array.get(zigzagtextSA,0)+sideway10sa
+
+upavg = upsize
+downavg = downsize
+upsma = ta.sma(upavg,smashort)
+downsma = ta.sma(downavg,smashort)
+
+upsmafalling = ta.falling(upsma,smashort)
+upsmarising = ta.rising(upsma,smashort)
+downsmafalling = ta.falling(downsma,smashort)
+downsmarising = ta.rising(downsma,smashort)
+
+color redcolor = switch
+    1 > downsma and downsma < 11 => color.rgb(255, 136, 136)
+    10 > downsma and downsma < 21 => color.rgb(251, 90, 90)
+    20 > downsma and downsma < 31 => color.rgb(244, 48, 48)
+    30 > downsma and downsma < 41 => color.rgb(223, 23, 23)
+    40 > downsma and downsma < 51 => color.rgb(198, 0, 0)
+
+color greencolor = switch
+    1 > upsma and upsma < 11 => color.rgb(197, 232, 183)
+    10 > upsma and upsma < 21 => color.rgb(171, 224, 152)
+    20 > upsma and upsma < 31 => color.rgb(131, 212, 117)
+    30 > upsma and upsma < 41 => color.rgb(87, 200, 77)
+    40 > upsma and upsma < 51 => color.rgb(46, 182, 44)
+
+if (upsize > 0 or upsizesa > 0) and showlabel
+    label.new(bar_index, low-15, text=str.format("{0}\n{1}",upsizesa,upsize) , tooltip = str.tostring(labelTextUpTip),  color = greencolor, force_overlay = true,size=moverup,style= label.style_label_up)
+if (downsize > 0 or downsizesa > 0) and showlabel
+    label.new(bar_index, high+15, text=str.format("{0}\n{1}",downsizesa,downsize) , tooltip = str.tostring(labelTextDownTip), color = redcolor, force_overlay = true,size=moverdown,style= label.style_label_down)    
+
+avgcount = bar_index-starting == 0?1:bar_index-starting
+mvupavg = ta.sma(upsizesa,avgcount)
+mvdnavg = ta.sma(downsizesa,avgcount)
+
+topweightavg = array.get(topweighclose, 0)    
+
+plot(array.size(SectorUp),color = greencolor)
+plot(array.size(SectorDown),color = redcolor)
+
+srcHULL = close          
+modeSwitch = "Hma"
+Hulllength = 55
+lengthMult = 1.0
+//FUNCTIONS
+//HMA
+HMA(_src, _length) =>  ta.wma(2 * ta.wma(_src, _length / 2) - ta.wma(_src, _length), math.round(math.sqrt(_length)))
+  
+//SWITCH
+Mode(modeSwitch, src, len) =>
+      modeSwitch == "Hma"  ? HMA(srcHULL, len) :na
+
+//OUT
+_hull = Mode(modeSwitch, srcHULL, int(Hulllength * lengthMult))
+HULL = _hull
+MHULL = HULL[0]
+SHULL = HULL[2]
+
+goLong() =>
+    if upsma > downsma and MHULL > SHULL and math.abs(MHULL - SHULL) > 2 and array.size(SectorUp) > 7 and array.get(RELTrend,0) == "U" and array.get(HDFCTrend,0) == "U" 
+        true
+goShort() =>
+    if upsma < downsma and MHULL < SHULL and math.abs(MHULL - SHULL) > 2 and array.size(SectorDown) > 7 and array.get(RELTrend,0) == "D" and array.get(HDFCTrend,0) == "D"
+        true
+
+//plot(MHULL,color = greencolor)
+//plot(SHULL,color =redcolor)
+
+plotchar(array.get(RELTrend,0) == "U", char='R',location = location.belowbar,color = color.green,force_overlay = true,size=size.auto)
+plotchar(array.get(RELTrend,0) == "D", char='R',location = location.abovebar,color = color.red,force_overlay = true,size=size.auto)
+plotchar(array.get(HDFCTrend,0) == "U", char='H',location = location.bottom,color = color.green,force_overlay = true,size=size.auto)
+plotchar(array.get(HDFCTrend,0) == "D", char='H',location = location.top,color = color.red,force_overlay = true,size=size.auto)
+
+goLongResult = goLong()
+goShortResult = goShort()
+
+//plot(nz(mvdnavg)+nz(mvupavg)/2,color =color.black)
+// if goLongResult and LongHigh == 0.0
+//     LongHigh := (high)
+//     //label.new(bar_index, low-15, text=str.tostring(LongHigh) , color = color.green, force_overlay = true,size=moverup,style= label.style_label_up)    
+// if goShortResult and ShortLow == 0.0
+//     ShortLow := (low)
+//     //label.new(bar_index, high+15, text=str.tostring(ShortLow) , color = color.red, force_overlay = true,size=moverup,style= label.style_label_down)    
+
+if bull.entry == false and goLongResult and bull.order <=2
+    direction := "Long"
+    bull.o := open
+    bull.h := high
+    bull.c := close
+    bull.l := low
+    bull.bi := bar_index
+    bull.entry := true
+    bull.exit := false
+    bull.order := bull.order + 1
+
+if bull.entry and (close < bull.c-10 or (hour == 15 and minute == 15))
+    bull.bi_exit := bar_index    
+    bull.exit := true
+    bull.entry := false
+    direction := ""    
+if bear.entry == false and goShortResult and bear.order <= 2
+    direction :="DOWN"
+    bear.o := open
+    bear.h := high
+    bear.c := close
+    bear.l := low
+    bear.bi := bar_index
+    bear.entry := true
+    bear.exit := false
+    bear.order := bear.order + 1     
+
+if bear.entry and (close >bear.c+10  or (hour == 15 and minute == 15))
+    bear.bi_exit := bar_index        
+    bear.exit := true
+    bear.entry := false    
+    direction := "" 
+
+// upTrend =    plot(bull.entry? low-15 : na, "Up Trend",   color =greencolor, style = plot.style_linebr,force_overlay = true)
+// downTrend =  plot(bear.entry? high+15: na, "Down Trend", color = redcolor,   style = plot.style_linebr,force_overlay = true)
+// bodyMiddle = plot(bull.entry? na : low-5, "Body Middle",display = display.none,force_overlay = true)
+// bodyMiddleBottom = plot(bear.entry? na : high+5, "Body Middle",display = display.none,force_overlay = true)
+// fill(bodyMiddle, upTrend,   title = "Uptrend background",   color =greencolor, fillgaps = false)
+// fill(bodyMiddleBottom, downTrend, title = "Downtrend background", color =redcolor , fillgaps = false)
+
+//plotchar(bull.bi == bar_index?bar_index:na, "Bull Up", "🠅", location.belowbar, color.green, size = size.tiny,force_overlay = true)
+//plotchar(bull.bi_exit == bar_index, "Bull Exit", "🠅", location.belowbar, color.rgb(18, 19, 18, 59), size = size.tiny,force_overlay = true)
+//plotchar(bear.bi == bar_index? bar_index:na, "Bear Down", "🠇", location.abovebar, color.red, size = size.tiny,force_overlay = true)
+//plotchar(bear.bi_exit == bar_index, "Bear Exit", "🠇", location.abovebar, color.rgb(23, 22, 22, 61), size = size.tiny,force_overlay = true)
+
+//alertcondition(bull.bi == bar_index, title='Open Long ▲', message='')
+//alertcondition(bear.bi == bar_index, title='Open Short ▼', message='')
+
+if bear.exit == true
+    bear.exit := false
+
+if bull.exit == true
+    bull.exit := false
