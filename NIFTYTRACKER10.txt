@@ -1,5 +1,6 @@
 //@version=6
-//@description A comprehensive Remaining 10 Nifty50 stocks technical analysis tracker that monitors trends using MACD and Supertrend indicators. Provides real-time sector analysis and market breadth visualization.
+//@description A comprehensive Remaining 10 Nifty50 stocks technical analysis tracker that monitors trends using MACD and Supertrend indicators. Provides real-time sector analysis and market breadth visualization. Requires paid TradingView plan with multi-symbol support. Designed to be used with NIFTYTRACKER10.
+
 //@author websivasankar
 
 indicator("NIFTYTRACKER10")

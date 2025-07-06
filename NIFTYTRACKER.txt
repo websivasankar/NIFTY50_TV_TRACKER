@@ -2,7 +2,6 @@
 //@description A comprehensive Nifty50 technical analysis tracker that monitors trends across all 50 Nifty stocks using MACD and Supertrend indicators. Provides real-time sector analysis and market breadth visualization. Requires companion indicator NIFTYTRACKER10 for complete coverage.
 //@author websivasankar
 
-//@version=6
 indicator("NIFTYTRACKER40",max_labels_count = 180)
 
 //Trend storage and 
